@@ -1,2 +1,7 @@
 # Notebook checkpoints files
 .ipynb_checkpoints
+
+# build, dist, LorisBallsBasedModel.egg-info directories
+build/
+dist/
+LorisBallsBasedModel.egg-info/

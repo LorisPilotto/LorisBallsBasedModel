@@ -14,8 +14,8 @@ setup(
     install_requires=['tensorflow'],
     keywords=['python', 'neural network', 'tensorflow', 'LorisBallsBasedModel', 'machine learning'],
     classifiers=[
-        "Development Status :: 1 - Testing",
-        "Intended Audience :: Data Scientists",
+        "Development Status :: 1 - Planning",
+        "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3",
         "Operating System :: Unix",
         "Operating System :: MacOS :: MacOS X",
