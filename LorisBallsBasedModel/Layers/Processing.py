@@ -26,7 +26,9 @@ class StringEmbedding(tf.keras.layers.Layer):
         
     def call(self, inputs):
         """Transformation from inputs to outputs."""
-        return self.embedding_layer(self.str_to_int(inputs))
+        converted_to_int = self.str_to_int(inputs)
+        converted_to_embedding = self.embedding_layer(converted_to_int)
+        return tf.keras.layers.Flatten()(converted_to_embedding)
     
 class InputsProcessing(tf.keras.layers.Layer):
     """Do the inputs processing such as normalization or categorical data embedding."""
