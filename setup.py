@@ -11,7 +11,7 @@ setup(
     author_email="loris.pilotto.pm@gmail.com",
     description=DESCRIPTION,
     packages=find_packages(),
-    install_requires=['tensorflow'],
+    install_requires=['tensorflow', 'tensorflow-addons'],
     keywords=['python', 'neural network', 'tensorflow', 'LorisBallsBasedModel', 'machine learning'],
     classifiers=[
         "Development Status :: 1 - Planning",

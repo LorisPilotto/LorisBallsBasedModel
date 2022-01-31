@@ -84,60 +84,53 @@ class BoundedParaboloids(tf.keras.layers.Layer):
         self.multiplier_regularizer = tf.keras.regularizers.get(multiplier_regularizer)
         self.multiplier_constraint = tf.keras.constraints.get(multiplier_constraint)
         
+    def map_fct(self, e, f, fct):
+        return tf.map_fn(lambda i: fct(i, f), e)
+    
     def build(self, input_shape):
-        self.semi_axis_list = [self.add_weight('semi_axis_'+str(ellipse_id),
-                                               shape=input_shape[1:],
-                                               initializer=self.semi_axis_initializer,
-                                               regularizer=self.semi_axis_regularizer,
-                                               constraint=self.semi_axis_constraint,
-                                               dtype=self.dtype,
-                                               trainable=True) for ellipse_id in range(self.units)]
-        self.sharpness_list = [self.add_weight('sharpness'+str(ellipse_id),
-                                               shape=[1],
-                                               initializer=self.sharpness_initializer,
-                                               regularizer=self.sharpness_regularizer,
-                                               constraint=self.sharpness_constraint,
-                                               dtype=self.dtype,
-                                               trainable=True) for ellipse_id in range(self.units)]
-        self.shift_list = [self.add_weight('shift'+str(ellipse_id),
-                                           shape=input_shape[1:],
-                                           initializer=self.shift_initializer,
-                                           regularizer=self.shift_regularizer,
-                                           constraint=self.shift_constraint,
-                                           dtype=self.dtype,
-                                           trainable=True) for ellipse_id in range(self.units)]
+        self.shift = self.add_weight('shift',
+                                     shape=[self.units, input_shape[1]],
+                                     initializer=self.shift_initializer,
+                                     regularizer=self.shift_regularizer,
+                                     constraint=self.shift_constraint,
+                                     dtype=self.dtype,
+                                     trainable=True)
+        self.semi_axis = self.add_weight('semi_axis',
+                                         shape=[self.units, input_shape[1]],
+                                         initializer=self.semi_axis_initializer,
+                                         regularizer=self.semi_axis_regularizer,
+                                         constraint=self.semi_axis_constraint,
+                                         dtype=self.dtype,
+                                         trainable=True)
+        self.sharpness = self.add_weight('sharpness',
+                                         shape=[self.units,],
+                                         initializer=self.sharpness_initializer,
+                                         regularizer=self.sharpness_regularizer,
+                                         constraint=self.sharpness_constraint,
+                                         dtype=self.dtype,
+                                         trainable=True)
         if self.use_multiplier:
-            self.multiplier_list = [self.add_weight('multiplier'+str(ellipse_id),
-                                                    shape=[1],
-                                                    initializer=self.multiplier_initializer,
-                                                    regularizer=self.multiplier_regularizer,
-                                                    constraint=self.multiplier_constraint,
-                                                    dtype=self.dtype,
-                                                    trainable=True) for ellipse_id in range(self.units)]
+            self.multiplier = self.add_weight('multiplier',
+                                              shape=[self.units,],
+                                              initializer=self.multiplier_initializer,
+                                              regularizer=self.multiplier_regularizer,
+                                              constraint=self.multiplier_constraint,
+                                              dtype=self.dtype,
+                                              trainable=True)
         else:
             self.multiplier_list = None
         super().build(input_shape)
-                
+        
     def call(self, inputs):
         if inputs.dtype.base_dtype != self._compute_dtype_object.base_dtype:
             inputs = tf.cast(inputs, dtype=self._compute_dtype_object)
         
-        ellipsoidal_list = []
+        shifted_inputs = self.map_fct(inputs, self.shift, tf.add)
+        ellipsoidal = 1-tf.reduce_sum(tf.multiply(tf.square(shifted_inputs), 1/tf.square(self.semi_axis)), axis=-1)
+        sharpe_ellipsoidal = ellipsoidal*self.sharpness
+        if self.activation is not None:
+            sharpe_ellipsoidal = self.activation(sharpe_ellipsoidal)
+        if self.use_multiplier:
+            sharpe_ellipsoidal *= self.multiplier
         
-        for ellipse_id in range(self.units):
-            shifted_inputs = tf.add(inputs, self.shift_list[ellipse_id])
-            
-            ellipsoidal = 1 - tf.tensordot(a=tf.square(shifted_inputs), b=1/tf.square(self.semi_axis_list[ellipse_id]), axes=[1, 0])
-            ellipsoidal = tf.expand_dims(ellipsoidal, -1)
-            
-            sharpe_ellipsoidal = self.sharpness_list[ellipse_id]*ellipsoidal
-            
-            if self.activation is not None:
-                sharpe_ellipsoidal = self.activation(sharpe_ellipsoidal)
-
-            if self.use_multiplier:
-                sharpe_ellipsoidal = self.multiplier_list[ellipse_id]*sharpe_ellipsoidal
-            
-            ellipsoidal_list.append(sharpe_ellipsoidal)
-            
-        return tf.keras.layers.Concatenate()(ellipsoidal_list)
+        return sharpe_ellipsoidal

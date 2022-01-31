@@ -1,2 +1,4 @@
 from LorisBallsBasedModel.Layers.BoundedParaboloids import SemiAxisRegularizer, MinusOrPlusOnesInitializer, BoundedParaboloids
-from LorisBallsBasedModel.Layers.Processing import StringEmbedding, InputsProcessing
+from LorisBallsBasedModel.Layers.Processing import StringEmbedding, InputsProcessing, UniformNoise
+from LorisBallsBasedModel.Layers.WeightedAdd import WeightedAdd
+from LorisBallsBasedModel.Layers.AttentiveTransformer import AttentiveTransformer, TensorRegularizer
