@@ -4,6 +4,7 @@ from LorisBallsBasedModel.Layers.WeightedAdd import WeightedAdd
 from LorisBallsBasedModel.Layers.BoundedParaboloids import BoundedParaboloids
 
 
+# TODO: Should we add bias to the addition layer?
 class AttentiveTransformer(tf.keras.layers.Layer):
     """The feature selection layer."""
     
@@ -22,6 +23,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
                  activation=tfa.activations.sparsemax,
                  epsilon=1e-8,
                  entropy_weight=0.,
+                 activity_regularizer=None,
                  **kwargs):
         """Initilaizes the AttentiveTransformer.
         
@@ -33,7 +35,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
         if prior_outputs_embedding_layer is not None and (prior_outputs_dense_units is not None or prior_outputs_Loris_balls_units is not None):
             raise ValueError("instantiate either `prior_outputs_embedding_layer` or `prior_outputs_dense_units`;`prior_outputs_Loris_balls_units`.")
         
-        super().__init__(**kwargs)
+        super().__init__(activity_regularizer=activity_regularizer, **kwargs)
         self.gamma = gamma
         self.dropout_rate = dropout_rate
         self.input_embedding_layer = input_embedding_layer
@@ -69,7 +71,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
             self.input_Loris_balls1 = BoundedParaboloids(self.input_Loris_balls_units, processing_layer=tf.keras.layers.BatchNormalization())
             self.input_dense_out = tf.keras.layers.Dense(input_shape[0][1])
         if self.prior_outputs_embedding_layer is not None:
-            self.prior_outputs_embedding_layer = self.prior_outputs_embedding_layer(input_shape)
+            self.prior_outputs_embedding_layer = self.prior_outputs_embedding_layer(input_shape[0, 1])
         else:
             if self.prior_outputs_dense_units is None:
                 self.prior_outputs_dense_units = input_shape[0][1]
@@ -125,7 +127,8 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
                  epsilon=1e-8,
-                 entropy_weight=0,
+                 entropy_weight=0.,
+                 activity_regularizer=None,
                  **kwargs):
         """Initilaizes the AttentiveTransformer.
         
@@ -135,7 +138,7 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
         if input_embedding_layer is not None and (input_dense_units is not None or input_Loris_balls_units is not None):
             raise ValueError("instantiate either `input_embedding_layer` or `input_dense_units`;`input_Loris_balls_units`.")
         
-        super().__init__(**kwargs)
+        super().__init__(activity_regularizer=activity_regularizer, **kwargs)
         self.dropout_rate = dropout_rate
         self.input_embedding_layer = input_embedding_layer
         if self.input_embedding_layer is None:
@@ -157,7 +160,7 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
                 self.input_Loris_balls_units = input_shape[1]
             self.input_dense1 = tf.keras.layers.Dense(self.input_dense_units, 'relu')
             self.input_Loris_balls1 = BoundedParaboloids(self.input_Loris_balls_units, processing_layer=tf.keras.layers.BatchNormalization())
-            self.input_dense_out = tf.keras.layers.Dense(input_shape[1], 'relu')
+            self.input_dense_out = tf.keras.layers.Dense(input_shape[1])
         super().build(input_shape)
     
     def call(self, inputs):
