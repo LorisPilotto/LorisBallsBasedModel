@@ -60,6 +60,13 @@ class BoundedParaboloids(tf.keras.layers.Layer):
                  multiplier_initializer=MinusOrPlusOnesInitializer(),
                  multiplier_regularizer=None,
                  multiplier_constraint=None,
+                 add_linear=False,
+                 linear_kernel_initializer='glorot_uniform',
+                 linear_kernel_regularizer=None,
+                 linear_kernel_constraint=None,
+                 linear_bias_initializer='zeros',
+                 linear_bias_regularizer=None,
+                 linear_bias_constraint=None,
                  activity_regularizer=None,
                  processing_layer=None,
                  **kwargs):
@@ -81,9 +88,18 @@ class BoundedParaboloids(tf.keras.layers.Layer):
         self.shift_constraint = tf.keras.constraints.get(shift_constraint)
         self.activation = tf.keras.activations.get(activation)
         self.use_multiplier = use_multiplier
-        self.multiplier_initializer = tf.keras.initializers.get(multiplier_initializer)
-        self.multiplier_regularizer = tf.keras.regularizers.get(multiplier_regularizer)
-        self.multiplier_constraint = tf.keras.constraints.get(multiplier_constraint)
+        if self.use_multiplier:
+            self.multiplier_initializer = tf.keras.initializers.get(multiplier_initializer)
+            self.multiplier_regularizer = tf.keras.regularizers.get(multiplier_regularizer)
+            self.multiplier_constraint = tf.keras.constraints.get(multiplier_constraint)
+        self.add_linear = add_linear
+        if self.add_linear:
+            self.linear_kernel_initializer = tf.keras.initializers.get(linear_kernel_initializer)
+            self.linear_kernel_regularizer = tf.keras.regularizers.get(linear_kernel_regularizer)
+            self.linear_kernel_constraint = tf.keras.constraints.get(linear_kernel_constraint)
+            self.linear_bias_initializer = tf.keras.initializers.get(linear_bias_initializer)
+            self.linear_bias_regularizer = tf.keras.regularizers.get(linear_bias_regularizer)
+            self.linear_bias_constraint = tf.keras.constraints.get(linear_bias_constraint)
         self.processing_layer = processing_layer
     
     def build(self, input_shape):
@@ -116,8 +132,22 @@ class BoundedParaboloids(tf.keras.layers.Layer):
                                               constraint=self.multiplier_constraint,
                                               dtype=self.dtype,
                                               trainable=True)
-        else:
-            self.multiplier_list = None
+        if self.add_linear:
+            self.linear_kernel = self.add_weight('linear_kernel',
+                                                 shape=[input_shape[1], self.units],
+                                                 initializer=self.linear_kernel_initializer,
+                                                 regularizer=self.linear_kernel_regularizer,
+                                                 constraint=self.linear_kernel_constraint,
+                                                 dtype=self.dtype,
+                                                 trainable=True)
+            self.linear_bias = self.add_weight('linear_bias',
+                                               shape=[self.units,],
+                                               initializer=self.linear_bias_initializer,
+                                               regularizer=self.linear_bias_regularizer,
+                                               constraint=self.linear_bias_constraint,
+                                               dtype=self.dtype,
+                                               trainable=True)
+                                               
         super().build(input_shape)
         
     def call(self, inputs):
@@ -126,16 +156,17 @@ class BoundedParaboloids(tf.keras.layers.Layer):
             
         if self.processing_layer is not None:
             inputs = self.processing_layer(inputs)
-        
-        input_shape = tf.shape(inputs)
-        
-        inputs = tf.reshape(tf.repeat(inputs, repeats=self.units, axis=0), (-1, self.units*input_shape[1]))
-        shifted_inputs = tf.reshape(tf.add(self.shift, inputs), (-1, self.units, input_shape[1]))
+                
+        repeated_inputs = tf.reshape(tf.repeat(inputs, repeats=self.units, axis=0), (-1, self.units*tf.shape(inputs)[1]))
+        shifted_inputs = tf.reshape(tf.add(self.shift, repeated_inputs), (-1, self.units, tf.shape(inputs)[1]))
         ellipsoidal = 1-tf.reduce_sum(tf.multiply(tf.square(shifted_inputs), 1/tf.square(self.semi_axis)), axis=-1)
         sharpe_ellipsoidal = ellipsoidal*self.sharpness
         if self.activation is not None:
             sharpe_ellipsoidal = self.activation(sharpe_ellipsoidal)
         if self.use_multiplier:
             sharpe_ellipsoidal *= self.multiplier
-        
+        if self.add_linear:
+            linear_regression = tf.matmul(inputs, self.linear_kernel) + self.linear_bias
+            sharpe_ellipsoidal += linear_regression
+            
         return sharpe_ellipsoidal

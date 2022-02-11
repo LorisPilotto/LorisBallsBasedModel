@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 from LorisBallsBasedModel.Layers.WeightedAdd import WeightedAdd
 from LorisBallsBasedModel.Layers.BoundedParaboloids import BoundedParaboloids
-    
+
 
 class AttentiveTransformer(tf.keras.layers.Layer):
     """The feature selection layer."""
@@ -21,7 +21,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
                  epsilon=1e-8,
-                 entropy_weight=0,
+                 entropy_weight=0.,
                  **kwargs):
         """Initilaizes the AttentiveTransformer.
         
