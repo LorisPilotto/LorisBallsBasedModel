@@ -46,7 +46,7 @@ class BoundedParaboloids(tf.keras.layers.Layer):
     
     def __init__(self,
                  units,
-                 semi_axis_initializer=tf.keras.initializers.RandomUniform(minval=.02, maxval=.2),
+                 semi_axis_initializer=tf.keras.initializers.RandomUniform(minval=.1, maxval=.5),
                  semi_axis_regularizer=SemiAxisRegularizer(0.000001),
                  semi_axis_constraint=lambda x: tf.maximum(x, 10**-5),  # should be strictly positive do avoid division by 0
                  sharpness_initializer=tf.keras.initializers.RandomUniform(minval=-2., maxval=2.),
@@ -61,6 +61,7 @@ class BoundedParaboloids(tf.keras.layers.Layer):
                  multiplier_regularizer=None,
                  multiplier_constraint=None,
                  activity_regularizer=None,
+                 processing_layer=None,
                  **kwargs):
         """Initilaizes the BoundedParaboloids.
         
@@ -83,13 +84,11 @@ class BoundedParaboloids(tf.keras.layers.Layer):
         self.multiplier_initializer = tf.keras.initializers.get(multiplier_initializer)
         self.multiplier_regularizer = tf.keras.regularizers.get(multiplier_regularizer)
         self.multiplier_constraint = tf.keras.constraints.get(multiplier_constraint)
-        
-    def map_fct(self, e, f, fct):
-        return tf.map_fn(lambda i: fct(i, f), e)
+        self.processing_layer = processing_layer
     
     def build(self, input_shape):
         self.shift = self.add_weight('shift',
-                                     shape=[self.units, input_shape[1]],
+                                     shape=[self.units*input_shape[1]],
                                      initializer=self.shift_initializer,
                                      regularizer=self.shift_regularizer,
                                      constraint=self.shift_constraint,
@@ -124,8 +123,14 @@ class BoundedParaboloids(tf.keras.layers.Layer):
     def call(self, inputs):
         if inputs.dtype.base_dtype != self._compute_dtype_object.base_dtype:
             inputs = tf.cast(inputs, dtype=self._compute_dtype_object)
+            
+        if self.processing_layer is not None:
+            inputs = self.processing_layer(inputs)
         
-        shifted_inputs = self.map_fct(inputs, self.shift, tf.add)
+        input_shape = tf.shape(inputs)
+        
+        inputs = tf.reshape(tf.repeat(inputs, repeats=self.units, axis=0), (-1, self.units*input_shape[1]))
+        shifted_inputs = tf.reshape(tf.add(self.shift, inputs), (-1, self.units, input_shape[1]))
         ellipsoidal = 1-tf.reduce_sum(tf.multiply(tf.square(shifted_inputs), 1/tf.square(self.semi_axis)), axis=-1)
         sharpe_ellipsoidal = ellipsoidal*self.sharpness
         if self.activation is not None:

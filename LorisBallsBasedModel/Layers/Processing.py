@@ -65,7 +65,7 @@ class InputsProcessing(tf.keras.layers.Layer):
         categorical_inputs : dict
             Keys: The names of categorical inputs; Values: Their corresponding embedding layer (e.g.: StringEmbedding layer).
         general_processing_layer : tf.keras.layers.Layer
-            A layer applied before returning the embedding. (E.g.: tf.keras.layers.BatchNormalization, tf.keras.layers.GaussianNoise, UniformNoise)
+            A layer applied before returning the embedding. (E.g.: tf.keras.layers.BatchNormalization(), tf.keras.layers.GaussianNoise(), UniformNoise())
         """
         super().__init__(**kwargs)
         if categorical_inputs is None:

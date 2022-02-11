@@ -28,9 +28,9 @@ class WeightedAdd(tf.keras.layers.Layer):
         self.bias_regularizer = tf.keras.regularizers.get(bias_regularizer)
         self.bias_constraint = tf.keras.constraints.get(bias_constraint)
         
-    def build(self, input_shape):
+    def build(self, input_shape):  # TOTEST may be wrong: I did it like if input_shape is [batch size, nbr inputs, ...] but it is more likely to be [list of inputs][batch size, ...] (I already try to correct it but IDK if it works)
         self.kernel = self.add_weight('kernel',
-                                      shape=input_shape[1:],
+                                      shape=[len(input_shape), input_shape[0][1]],
                                       initializer=self.kernel_initializer,
                                       regularizer=self.kernel_regularizer,
                                       constraint=self.kernel_constraint,
@@ -38,7 +38,7 @@ class WeightedAdd(tf.keras.layers.Layer):
                                       trainable=True)
         if self.use_bias:
             self.bias = self.add_weight('bias',
-                                        shape=input_shape[2:],
+                                        shape=input_shape[0][1:],
                                         initializer=self.bias_initializer,
                                         regularizer=self.bias_regularizer,
                                         constraint=self.bias_constraint,
@@ -49,8 +49,11 @@ class WeightedAdd(tf.keras.layers.Layer):
         super().build(input_shape)
         
     def call(self, inputs):
-        if inputs.dtype.base_dtype != self._compute_dtype_object.base_dtype:
-            inputs = tf.cast(inputs, dtype=self._compute_dtype_object)
+        inputs = tf.reshape(
+            tf.concat(
+                inputs,
+                axis=1),
+            (-1, len(inputs), tf.shape(inputs[0])[-1]))
         
         ret = tf.multiply(inputs, self.kernel)
         ret = tf.reduce_sum(ret, axis=1)

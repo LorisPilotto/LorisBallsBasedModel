@@ -1,1 +1,1 @@
-from LorisBallsBasedModel.Models.Models import SingleLayerPerceptron, MultiLayerPerceptron, LorisBallsBasedModel
+from LorisBallsBasedModel.Models.Models import SingleLayerPerceptron, MultiLayerPerceptron, LorisBallsBasedModel, LorisBallsBasedModelTransferLearning
