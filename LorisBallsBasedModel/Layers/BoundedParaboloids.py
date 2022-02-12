@@ -49,7 +49,7 @@ class BoundedParaboloids(tf.keras.layers.Layer):
                  semi_axis_initializer=tf.keras.initializers.RandomUniform(minval=.1, maxval=.5),
                  semi_axis_regularizer=SemiAxisRegularizer(1e-6),
                  semi_axis_constraint=lambda x: tf.maximum(x, 1e-5),  # should be strictly positive do avoid division by 0
-                 sharpness_initializer=tf.keras.initializers.RandomUniform(minval=.5, maxval=2.),
+                 sharpness_initializer=tf.keras.initializers.RandomUniform(minval=.5, maxval=1.),
                  sharpness_regularizer=None,
                  sharpness_constraint=None,
                  shift_initializer=tf.keras.initializers.RandomNormal(mean=.0, stddev=1.),
@@ -61,15 +61,12 @@ class BoundedParaboloids(tf.keras.layers.Layer):
                  multiplier_regularizer=None,
                  multiplier_constraint=None,
                  add_linear=False,
-                 linear_kernel_initializer='glorot_uniform',
-                 linear_kernel_regularizer=None,
-                 linear_kernel_constraint=None,
-                 linear_bias_initializer='zeros',
-                 linear_bias_regularizer=None,
-                 linear_bias_constraint=None,
+                 linear_layer=tf.keras.layers.Dense,
+                 linear_layer_params=None,
                  activity_regularizer=None,
                  processing_layer=None,
                  **kwargs):
+        
         """Initilaizes the BoundedParaboloids.
         
         Parameters
@@ -94,12 +91,13 @@ class BoundedParaboloids(tf.keras.layers.Layer):
             self.multiplier_constraint = tf.keras.constraints.get(multiplier_constraint)
         self.add_linear = add_linear
         if self.add_linear:
-            self.linear_kernel_initializer = tf.keras.initializers.get(linear_kernel_initializer)
-            self.linear_kernel_regularizer = tf.keras.regularizers.get(linear_kernel_regularizer)
-            self.linear_kernel_constraint = tf.keras.constraints.get(linear_kernel_constraint)
-            self.linear_bias_initializer = tf.keras.initializers.get(linear_bias_initializer)
-            self.linear_bias_regularizer = tf.keras.regularizers.get(linear_bias_regularizer)
-            self.linear_bias_constraint = tf.keras.constraints.get(linear_bias_constraint)
+            if linear_layer_params is None:
+                self.linear_layer_params = {'units': self.units,
+                                            'kernel_initializer': 'glorot_normal'}
+            else:
+                self.linear_layer_params = linear_layer_params
+                self.linear_layer_params['units'] = self.units
+            self.linear_layer = linear_layer(**self.linear_layer_params)
         self.processing_layer = processing_layer
     
     def build(self, input_shape):
@@ -132,22 +130,6 @@ class BoundedParaboloids(tf.keras.layers.Layer):
                                               constraint=self.multiplier_constraint,
                                               dtype=self.dtype,
                                               trainable=True)
-        if self.add_linear:
-            self.linear_kernel = self.add_weight('linear_kernel',
-                                                 shape=[input_shape[1], self.units],
-                                                 initializer=self.linear_kernel_initializer,
-                                                 regularizer=self.linear_kernel_regularizer,
-                                                 constraint=self.linear_kernel_constraint,
-                                                 dtype=self.dtype,
-                                                 trainable=True)
-            self.linear_bias = self.add_weight('linear_bias',
-                                               shape=[self.units,],
-                                               initializer=self.linear_bias_initializer,
-                                               regularizer=self.linear_bias_regularizer,
-                                               constraint=self.linear_bias_constraint,
-                                               dtype=self.dtype,
-                                               trainable=True)
-                                               
         super().build(input_shape)
         
     def call(self, inputs):
@@ -166,7 +148,7 @@ class BoundedParaboloids(tf.keras.layers.Layer):
         if self.use_multiplier:
             sharpe_ellipsoidal *= self.multiplier
         if self.add_linear:
-            linear_regression = tf.matmul(inputs, self.linear_kernel) + self.linear_bias
+            linear_regression = self.linear_layer(inputs)
             sharpe_ellipsoidal += linear_regression
             
         return sharpe_ellipsoidal
