@@ -6,3 +6,4 @@ build/
 dist/
 LorisBallsBasedModel.egg-info/
 data/riid/
+keras_tuners_logs/**
