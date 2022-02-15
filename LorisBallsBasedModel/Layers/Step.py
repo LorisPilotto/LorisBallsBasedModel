@@ -70,7 +70,7 @@ class Step(tf.keras.layers.Layer):
     def call(self, inputs):
         if self.processing_layer is not None:
             inputs = self.processing_layer(inputs)
-            
+        
         input_tensor, prior_outputs_list, prior_masks_list = inputs
         
         mask = self.attentive_transformer(inputs)
@@ -81,14 +81,14 @@ class Step(tf.keras.layers.Layer):
             prior_outputs_embedding = self.prior_outputs_DenseAndBoundedParaboloids_embedding_layer(tf.keras.layers.Concatenate()(prior_outputs_list))
         else:
             prior_outputs_embedding = self.prior_outputs_embedding_layer(prior_outputs_list)
-            
+        
         if self.features_embedding_layer is None:
             inp = tf.keras.layers.Concatenate()([selected_features, prior_outputs_embedding])
             embedding_1 = self.features_embedding_layer_1(inp)
             output = self.features_embedding_layer_2(tf.keras.layers.Concatenate()([embedding_1, inp]))
         else:
             output = self.features_embedding_layer(selected_features, prior_outputs_embedding)
-            
+        
         return output[:, :self.features_outputs_units], output[:, self.features_outputs_units:], mask
     
 class FirstStep(tf.keras.layers.Layer):

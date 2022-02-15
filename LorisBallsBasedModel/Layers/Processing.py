@@ -20,7 +20,7 @@ class StringEmbedding(tf.keras.layers.Layer):
         self.unique_elements = unique_elements
         self.embedding_size = embedding_size
         # needed layers to perform str embedding:
-        self.str_to_int = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary=self.unique_elements)
+        self.str_to_int = tf.keras.layers.StringLookup(vocabulary=self.unique_elements)
         self.embedding_layer = tf.keras.layers.Embedding(input_dim=len(self.unique_elements) + 1,
                                                          output_dim=self.embedding_size)
         
@@ -33,12 +33,17 @@ class StringEmbedding(tf.keras.layers.Layer):
 class UniformNoise(tf.keras.layers.Layer):
     """A layer that add a uniform noise at training time."""
     
-    def __init__(self, min_val=-.01, max_val=.01, seed=None, *args, **kwargs):
+    def __init__(self,
+                 min_val=-.01,
+                 max_val=.01,
+                 seed=None,
+                 *args,
+                 **kwargs):
         super().__init__(*args, **kwargs)
         self.min_val = min_val
         self.max_val = max_val
         self.seed = seed
-        self.mean = float(self.max_val - self.min_val)/2.
+        self.mean = tf.cast(self.max_val + self.min_val, tf.float32)/2.
 
     def call(self, inputs, training=None):
         if training:
@@ -52,40 +57,34 @@ class UniformNoise(tf.keras.layers.Layer):
                                             self.mean), inputs.dtype)
 
 class InputsProcessing(tf.keras.layers.Layer):
-    """Do the inputs processing such as normalization or categorical data embedding."""
+    """Do the inputs processing such as normalization or categorical features embedding."""
     
     def __init__(self,
-                 categorical_inputs=None,
+                 categorical_features=None,
                  general_processing_layer=None,
                  **kwargs):
         """Initializes the layer.
 
         Parameters
         ----------
-        categorical_inputs : dict
-            Keys: The names of categorical inputs; Values: Their corresponding embedding layer (e.g.: StringEmbedding layer).
+        categorical_features : dict
+            Keys: The names of categorical features; Values: Their corresponding embedding layer (e.g.: StringEmbedding layer).
         general_processing_layer : tf.keras.layers.Layer
             A layer applied before returning the embedding. (E.g.: tf.keras.layers.BatchNormalization(), tf.keras.layers.GaussianNoise(), UniformNoise())
         """
         super().__init__(**kwargs)
-        if categorical_inputs is None:
-            self.categorical_inputs = {}
+        if categorical_features is None:
+            self.categorical_features = {}
         else:
-            self.categorical_inputs = categorical_inputs
+            self.categorical_features = categorical_features
         self.general_processing_layer = general_processing_layer
         
     def call(self, inputs):
-        inputs_tmp = {}
-        for one_input_name in inputs.keys():
-            if one_input_name in self.categorical_inputs.keys():
-                inputs_tmp[one_input_name] = self.categorical_inputs[one_input_name](inputs[one_input_name])
-            else:
-                inputs_tmp[one_input_name] = inputs[one_input_name]
-                        
-        embedded_inputs = tf.keras.layers.Concatenate()(list(inputs_tmp.values()))
-        embedded_inputs = tf.keras.layers.Flatten()(embedded_inputs)
+        for categorical_feature in self.categorical_features.keys():
+            inputs[categorical_feature] = self.categorical_features[categorical_feature](inputs[categorical_feature])
+        inputs = tf.concat(list(inputs.values()), axis=-1)
         
         if self.general_processing_layer is not None:
-            embedded_inputs = self.general_processing_layer(embedded_inputs)
+            inputs = self.general_processing_layer(inputs)
         
-        return embedded_inputs
+        return inputs

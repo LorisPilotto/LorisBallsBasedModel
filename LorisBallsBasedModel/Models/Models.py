@@ -78,7 +78,7 @@ class LorisBallsBasedModel(tf.keras.Model):
             tmp_embedding, tmp_embedding_pass_next_step, tmp_mask = step([inputs,
                                                                           prior_embeddings_list,
                                                                           prior_masks_list])
-            embedding += tmp_embedding_pass_next_step
+            embedding += tmp_embedding
             prior_embeddings_list.append(tmp_embedding_pass_next_step)
             prior_masks_list.append(tmp_mask)
         

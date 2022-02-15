@@ -4,7 +4,6 @@ from LorisBallsBasedModel.Layers.WeightedAdd import WeightedAdd
 from LorisBallsBasedModel.Layers.BoundedParaboloids import BoundedParaboloids
 
 
-# TODO: Should we add bias to the addition layer?
 class AttentiveTransformer(tf.keras.layers.Layer):
     """The feature selection layer."""
     
@@ -17,7 +16,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
                  prior_outputs_dense_units=None,
                  prior_outputs_Loris_balls_units=None,
                  prior_outputs_embedding_layer=None,
-                 weighted_add_layer=WeightedAdd(),
+                 weighted_add_layer=WeightedAdd(use_bias=True),
                  prior_mask_scales_function=None,
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
@@ -91,6 +90,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
             inputs_embedding = self.input_dense_out(tf.keras.layers.Concatenate()([input_dense1, input_Loris_balls1]))
         else:
             inputs_embedding = self.input_embedding_layer(input_tensor)
+        
         prior_outputs = tf.keras.layers.Concatenate()(prior_outputs_list)
         if self.prior_outputs_embedding_layer is None:
             prior_outputs_dense1 = self.prior_outputs_dense1(prior_outputs)
@@ -98,9 +98,11 @@ class AttentiveTransformer(tf.keras.layers.Layer):
             prior_outputs_embedding = self.prior_outputs_dense_out(tf.keras.layers.Concatenate()([prior_outputs_dense1, prior_outputs_Loris_balls1]))
         else:
             prior_outputs_embedding = self.prior_outputs_embedding_layer(prior_outputs)
+
         mask = self.weighted_add_layer([self.inp_drop(input_tensor),
                                         self.inp_emb_drop(inputs_embedding),
                                         self.prior_out_drop(prior_outputs_embedding)])
+
         prior = self.prior_mask_scales_function(self.gamma, prior_masks_list, tf.shape(input_tensor))
         mask *= prior
         
@@ -123,7 +125,7 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
                  input_dense_units=None,
                  input_Loris_balls_units=None,
                  input_embedding_layer=None,
-                 weighted_add_layer=WeightedAdd(),
+                 weighted_add_layer=WeightedAdd(use_bias=True),
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
                  epsilon=1e-8,
