@@ -6,7 +6,8 @@ import math
 
 
 class HyperModelCrossValidation(kt.HyperModel):
-    """A HyperModel class that performe cross validation."""
+    """A HyperModel class that performe cross validation.
+    Note: For cross validation, we build several time a model per trial -> TensorBoard does not work"""
     
     def __init__(self,
                  build_model,

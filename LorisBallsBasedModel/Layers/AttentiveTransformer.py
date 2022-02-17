@@ -2,7 +2,31 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 from LorisBallsBasedModel.Layers.WeightedAdd import WeightedAdd
 from LorisBallsBasedModel.Layers.BoundedParaboloids import BoundedParaboloids
+from LorisBallsBasedModel.Layers.UtilityLayers import IdentityLayer
 
+
+class EntropyRegularization(tf.keras.regularizers.Regularizer):
+    """Apply an entropy regularization."""
+    
+    def __init__(self,
+                 m,
+                 epsilon=1e-8):
+        """Initializes the EntropyRegularization.
+        
+        Parameters
+        ----------
+        m : float
+            Regularization factor. Increase m to increase penalization.
+        epsilon : float
+            A small term for stability: log(0+epsilon). (default to 1e-8)
+        """
+        self.m = m
+        self.epsilon = epsilon
+        
+    def __call__(self, x):
+        return self.m*tf.reduce_mean(
+            tf.reduce_sum(-x * tf.math.log(x + self.epsilon), axis=-1)
+        )
 
 class AttentiveTransformer(tf.keras.layers.Layer):
     """The feature selection layer."""
@@ -20,7 +44,6 @@ class AttentiveTransformer(tf.keras.layers.Layer):
                  prior_mask_scales_function=None,
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
-                 epsilon=1e-8,
                  entropy_weight=0.,
                  activity_regularizer=None,
                  **kwargs):
@@ -49,6 +72,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
                 return tf.pow(gamma, mean_features_importance)
         self.prior_mask_scales_function = prior_mask_scales_function
         self.regularizer = tf.keras.regularizers.get(regularizer)
+        self.activity_regularizer_layer = IdentityLayer(self.regularizer)
         self.activation = tf.keras.activations.get(activation)
         self.inp_drop = tf.keras.layers.Dropout(self.dropout_rate)
         self.inp_emb_drop = tf.keras.layers.Dropout(self.dropout_rate)
@@ -57,8 +81,8 @@ class AttentiveTransformer(tf.keras.layers.Layer):
             self.prior_outputs_dense_units = prior_outputs_dense_units
             self.prior_outputs_Loris_balls_units = prior_outputs_Loris_balls_units
         self.prior_out_drop = tf.keras.layers.Dropout(self.dropout_rate)
-        self.epsilon = epsilon
         self.entropy_weight = entropy_weight
+        self.activity_entropy_regularizer_layer = IdentityLayer(EntropyRegularization(self.entropy_weight))
         
     def build(self, input_shape):
         if self.input_embedding_layer is None:
@@ -106,14 +130,11 @@ class AttentiveTransformer(tf.keras.layers.Layer):
         prior = self.prior_mask_scales_function(self.gamma, prior_masks_list, tf.shape(input_tensor))
         mask *= prior
         
-        self.add_loss(self.regularizer(mask))
+        mask = self.activity_regularizer_layer(mask)
         
         mask = self.activation(mask)
         
-        entropy_regularization = self.entropy_weight*tf.reduce_mean(
-            tf.reduce_sum(-mask * tf.math.log(mask + self.epsilon), axis=-1)
-        )
-        self.add_loss(entropy_regularization)
+        mask = self.activity_entropy_regularizer_layer(mask)
         
         return mask
     
@@ -128,7 +149,6 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
                  weighted_add_layer=WeightedAdd(use_bias=True),
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
-                 epsilon=1e-8,
                  entropy_weight=0.,
                  activity_regularizer=None,
                  **kwargs):
@@ -148,11 +168,12 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
             self.input_Loris_balls_units = input_Loris_balls_units
         self.weighted_add_layer = weighted_add_layer
         self.regularizer = tf.keras.regularizers.get(regularizer)
+        self.activity_regularizer_layer = IdentityLayer(self.regularizer)
         self.activation = tf.keras.activations.get(activation)
         self.inp_drop = tf.keras.layers.Dropout(self.dropout_rate)
         self.inp_emb_drop = tf.keras.layers.Dropout(self.dropout_rate)
-        self.epsilon = epsilon
         self.entropy_weight = entropy_weight
+        self.activity_entropy_regularizer_layer = IdentityLayer(EntropyRegularization(self.entropy_weight))
         
     def build(self, input_shape):
         if self.input_embedding_layer is None:
@@ -176,13 +197,10 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
         mask = self.weighted_add_layer([self.inp_drop(inputs),
                                         self.inp_emb_drop(inputs_embedding)])
         
-        self.add_loss(self.regularizer(mask))
+        mask = self.activity_regularizer_layer(mask)
         
         mask = self.activation(mask)
         
-        entropy_regularization = self.entropy_weight*tf.reduce_mean(
-            tf.reduce_sum(-mask * tf.math.log(mask + self.epsilon), axis=-1)
-        )
-        self.add_loss(entropy_regularization)
+        mask = self.activity_entropy_regularizer_layer(mask)
         
         return mask
