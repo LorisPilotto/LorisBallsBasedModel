@@ -78,7 +78,9 @@ class Step(tf.keras.layers.Layer):
         selected_features = input_tensor*mask
         
         if self.prior_outputs_embedding_layer is None:
-            prior_outputs_embedding = self.prior_outputs_DenseAndBoundedParaboloids_embedding_layer(tf.keras.layers.Concatenate()(prior_outputs_list))
+            prior_outputs_embedding = self.prior_outputs_DenseAndBoundedParaboloids_embedding_layer(
+                tf.keras.layers.Concatenate()(prior_outputs_list)
+            )
         else:
             prior_outputs_embedding = self.prior_outputs_embedding_layer(prior_outputs_list)
         

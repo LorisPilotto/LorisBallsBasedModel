@@ -91,7 +91,8 @@ class AttentiveTransformer(tf.keras.layers.Layer):
             if self.input_Loris_balls_units is None:
                 self.input_Loris_balls_units = input_shape[0][1]
             self.input_dense1 = tf.keras.layers.Dense(self.input_dense_units, 'relu')
-            self.input_Loris_balls1 = BoundedParaboloids(self.input_Loris_balls_units, processing_layer=tf.keras.layers.BatchNormalization())
+            self.input_Loris_balls1 = BoundedParaboloids(self.input_Loris_balls_units,
+                                                         processing_layer=tf.keras.layers.BatchNormalization())
             self.input_dense_out = tf.keras.layers.Dense(input_shape[0][1])
         if self.prior_outputs_embedding_layer is not None:
             self.prior_outputs_embedding_layer = self.prior_outputs_embedding_layer(input_shape[0, 1])
@@ -101,7 +102,8 @@ class AttentiveTransformer(tf.keras.layers.Layer):
             if self.prior_outputs_Loris_balls_units is None:
                 self.prior_outputs_Loris_balls_units = input_shape[0][1]
             self.prior_outputs_dense1 = tf.keras.layers.Dense(self.prior_outputs_dense_units, 'relu')
-            self.prior_outputs_Loris_balls1 = BoundedParaboloids(self.prior_outputs_Loris_balls_units, processing_layer=tf.keras.layers.BatchNormalization())
+            self.prior_outputs_Loris_balls1 = BoundedParaboloids(self.prior_outputs_Loris_balls_units,
+                                                                 processing_layer=tf.keras.layers.BatchNormalization())
             self.prior_outputs_dense_out = tf.keras.layers.Dense(input_shape[0][1])
         super().build(input_shape)
     
@@ -119,7 +121,8 @@ class AttentiveTransformer(tf.keras.layers.Layer):
         if self.prior_outputs_embedding_layer is None:
             prior_outputs_dense1 = self.prior_outputs_dense1(prior_outputs)
             prior_outputs_Loris_balls1 = self.prior_outputs_Loris_balls1(prior_outputs)
-            prior_outputs_embedding = self.prior_outputs_dense_out(tf.keras.layers.Concatenate()([prior_outputs_dense1, prior_outputs_Loris_balls1]))
+            prior_outputs_embedding = self.prior_outputs_dense_out(tf.keras.layers.Concatenate()([prior_outputs_dense1,
+                                                                                                  prior_outputs_Loris_balls1]))
         else:
             prior_outputs_embedding = self.prior_outputs_embedding_layer(prior_outputs)
 
@@ -182,7 +185,8 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
             if self.input_Loris_balls_units is None:
                 self.input_Loris_balls_units = input_shape[1]
             self.input_dense1 = tf.keras.layers.Dense(self.input_dense_units, 'relu')
-            self.input_Loris_balls1 = BoundedParaboloids(self.input_Loris_balls_units, processing_layer=tf.keras.layers.BatchNormalization())
+            self.input_Loris_balls1 = BoundedParaboloids(self.input_Loris_balls_units,
+                                                         processing_layer=tf.keras.layers.BatchNormalization())
             self.input_dense_out = tf.keras.layers.Dense(input_shape[1])
         super().build(input_shape)
     
