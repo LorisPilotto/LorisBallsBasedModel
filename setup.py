@@ -6,7 +6,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 with codecs.open(os.path.join(here, "README.md"), encoding="utf-8") as fh:
     long_description = "\n" + fh.read()
 
-VERSION = '0.0.2'
+VERSION = '0.0.3'
 DESCRIPTION = 'A package that allows to build neural networks models using my balls.'
 
 setup(
@@ -30,7 +30,7 @@ setup(
               'Machine Learning'],
     url='https://github.com/LorisPilotto/LorisBallsBasedModel',
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3",
         "Operating System :: Unix",
