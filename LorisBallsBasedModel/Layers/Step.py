@@ -16,13 +16,11 @@ class DenseAndBoundedParaboloids(tf.keras.layers.Layer):
                                          'activation': 'relu'}
         else:
             self.dict_dense_in_params = dict_dense_in_params
-            self.dict_dense_in_params['units'] = self.units
         if dict_bounded_paraboloids_in_params is None:
             self.dict_bounded_paraboloids_in_params = {'units': self.units,
                                                        'processing_layer': tf.keras.layers.BatchNormalization()}
         else:
             self.dict_bounded_paraboloids_in_params = dict_bounded_paraboloids_in_params
-            self.dict_bounded_paraboloids_in_params['units'] = self.units
             tf.print("BoundedParaboloids inputs normalized?")
         if dict_dense_out_params is None:
             self.dict_dense_out_params = {'units': self.units,
@@ -63,6 +61,8 @@ class Step(tf.keras.layers.Layer):
             self.features_embedding_layer_2 = DenseAndBoundedParaboloids(self.features_outputs_units+self.features_pass_next_step_units)
         self.prior_outputs_embedding_layer = prior_outputs_embedding_layer
         if self.prior_outputs_embedding_layer is None:
+            if prior_outputs_units is None:
+                raise ValueError("Pass a 'prior_outputs_units' or a 'prior_outputs_embedding_layer' argument.")
             self.prior_outputs_units = prior_outputs_units
             self.prior_outputs_DenseAndBoundedParaboloids_embedding_layer = DenseAndBoundedParaboloids(self.prior_outputs_units)
         self.processing_layer = processing_layer

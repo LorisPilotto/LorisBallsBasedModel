@@ -47,7 +47,7 @@ class BoundedParaboloids(tf.keras.layers.Layer):
     def __init__(self,
                  units,
                  semi_axis_initializer=tf.keras.initializers.RandomUniform(minval=.1, maxval=.5),
-                 semi_axis_regularizer=SemiAxisRegularizer(1e-6),
+                 semi_axis_regularizer=SemiAxisRegularizer(1e-5),
                  semi_axis_constraint=lambda x: tf.maximum(x, 1e-5),  # should be strictly positive do avoid division by 0
                  sharpness_initializer=tf.keras.initializers.RandomUniform(minval=.5, maxval=1.),
                  sharpness_regularizer=None,

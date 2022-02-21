@@ -15,6 +15,7 @@ class HyperModelCrossValidation(kt.HyperModel):
                  batch_sizes_to_try_list,
                  optimization_metric='loss',
                  minimize_optimization_metric=True,
+                 hyper_callbacks=None,
                  **kwargs):
         if nbr_folds < 2:
             raise ValueError(f"'nbr_folds' needs to be greater or equal to 2 for cross validation. Received: {nbr_folds}")
@@ -24,23 +25,37 @@ class HyperModelCrossValidation(kt.HyperModel):
         self.batch_sizes_to_try_list = batch_sizes_to_try_list
         self.optimization_metric = optimization_metric
         self.minimize_optimization_metric = minimize_optimization_metric
+        self.hyper_callbacks = hyper_callbacks
         
     def build(self, hp):
         return self.build_model(hp)
     
     def fit(self, hp, model, x, y, *args, **kwargs):
+        if isinstance(y, pd.Series):
+            y = y.values
+        if isinstance(x, pd.DataFrame):
+            x = x.values
+        elif isinstance(x, dict):
+            for feature_key, feature_values in x.items():
+                if isinstance(feature_values, pd.Series):
+                    x[feature_key] = feature_values.values
+        
         if isinstance(y, type(list)) or isinstance(y, np.ndarray):
             nbr_samples = len(y)
             folds_size = math.ceil(nbr_samples/self.nbr_folds)
         else:
-            raise ValueError(f"'y' type expected: list/np.ndarray. Received: {type(y)}")
-                    
+            raise ValueError(f"'y' type expected: list/np.ndarray/pd.Series. Received: {type(y)}")
+        
+        tmp_callbacks = kwargs['callbacks']
+        
         for fold_id, lower_bound in enumerate(np.arange(0, nbr_samples-1, folds_size)):
             print(f"-- FOLD NUMBER: {fold_id} --")
             
             tmp_model = self.build(hp)
+            instantiated_hyper_callbacks = [hyper_callback(hp) for hyper_callback in self.hyper_callbacks]
+            kwargs['callbacks'] = [*tmp_callbacks, *instantiated_hyper_callbacks]
             
-            if isinstance(x, type(list)) or isinstance(x, np.ndarray) or isinstance(x, pd.DataFrame):
+            if isinstance(x, type(list)) or isinstance(x, np.ndarray):
                 x_train = [*x[:lower_bound], *x[lower_bound+folds_size:]]
                 x_val = x[lower_bound:lower_bound+folds_size]
             elif isinstance(x, dict):
