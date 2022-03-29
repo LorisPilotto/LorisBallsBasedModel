@@ -50,8 +50,6 @@ class Step(tf.keras.layers.Layer):
                  prior_outputs_embedding_layer=None,
                  prior_outputs_units=None,
                  processing_layer=None,
-                 step_embeddings_neurons_dropout_rate=None,
-                 step_embeddings_samples_dropout_rate=None,
                  **kwargs):
         super().__init__(**kwargs)
         self.attentive_transformer = attentive_transformer(**attentive_transformer_params_dict)
@@ -68,26 +66,16 @@ class Step(tf.keras.layers.Layer):
             self.prior_outputs_units = prior_outputs_units
             self.prior_outputs_DenseAndBoundedParaboloids_embedding_layer = DenseAndBoundedParaboloids(self.prior_outputs_units)
         self.processing_layer = processing_layer
-        self.step_embeddings_neurons_dropout_rate = step_embeddings_neurons_dropout_rate
-        self.step_embeddings_samples_dropout_rate = step_embeddings_samples_dropout_rate
         
-    def build(self, input_shape):
-        if self.step_embeddings_neurons_dropout_rate is not None:
-            self.step_embeddings_neurons_dropout = tf.keras.layers.Dropout(rate=self.step_embeddings_neurons_dropout_rate)
-        if self.step_embeddings_samples_dropout_rate is not None:
-            self.step_embeddings_samples_dropout = tf.keras.layers.Dropout(rate=self.step_embeddings_samples_dropout_rate,
-                                                                           noise_shape=[input_shape[0], 1])
-        super().build(input_shape)
-        
-    def call(self, inputs):
+    def call(self, inputs, states=None):
         if self.processing_layer is not None:
             inputs = self.processing_layer(inputs)
         
         input_tensor, prior_outputs_list, prior_masks_list = inputs
         
-        mask = self.attentive_transformer(inputs)
+        mask, states = self.attentive_transformer(inputs, states)
         
-        selected_features = input_tensor*mask
+        selected_features = input_tensor * mask
         
         if self.prior_outputs_embedding_layer is None:
             prior_outputs_embedding = self.prior_outputs_DenseAndBoundedParaboloids_embedding_layer(
@@ -104,12 +92,8 @@ class Step(tf.keras.layers.Layer):
             output = self.features_embedding_layer([selected_features, prior_outputs_embedding])
         
         outputs = output[:, :self.features_outputs_units], output[:, self.features_outputs_units:], mask
-        if self.step_embeddings_neurons_dropout_rate is not None:
-            outputs[0] = self.step_embeddings_neurons_dropout(outputs[0])
-        if self.step_embeddings_samples_dropout_rate is not None:
-            outputs[0] = self.step_embeddings_samples_dropout(outputs[0])
             
-        return outputs
+        return outputs, states
     
 class FirstStep(tf.keras.layers.Layer):
     def __init__(self,
@@ -119,8 +103,6 @@ class FirstStep(tf.keras.layers.Layer):
                  features_pass_next_step_units,
                  features_embedding_layer=None,
                  processing_layer=None,
-                 step_embeddings_neurons_dropout_rate=None,
-                 step_embeddings_samples_dropout_rate=None,
                  **kwargs):
         super().__init__(**kwargs)
         self.attentive_transformer = attentive_transformer(**attentive_transformer_params_dict)
@@ -131,24 +113,14 @@ class FirstStep(tf.keras.layers.Layer):
             self.features_embedding_layer_1 = DenseAndBoundedParaboloids(self.features_outputs_units+self.features_pass_next_step_units)
             self.features_embedding_layer_2 = DenseAndBoundedParaboloids(self.features_outputs_units+self.features_pass_next_step_units)
         self.processing_layer = processing_layer
-        self.step_embeddings_neurons_dropout_rate = step_embeddings_neurons_dropout_rate
-        self.step_embeddings_samples_dropout_rate = step_embeddings_samples_dropout_rate
-        
-    def build(self, input_shape):
-        if self.step_embeddings_neurons_dropout_rate is not None:
-            self.step_embeddings_neurons_dropout = tf.keras.layers.Dropout(rate=self.step_embeddings_neurons_dropout_rate)
-        if self.step_embeddings_samples_dropout_rate is not None:
-            self.step_embeddings_samples_dropout = tf.keras.layers.Dropout(rate=self.step_embeddings_samples_dropout_rate,
-                                                                           noise_shape=[input_shape[0], 1])
-        super().build(input_shape)
         
     def call(self, inputs):
         if self.processing_layer is not None:
             inputs = self.processing_layer(inputs)
         
-        mask = self.attentive_transformer(inputs)
+        mask, states = self.attentive_transformer(inputs)
         
-        selected_features = inputs*mask
+        selected_features = inputs * mask
         
         if self.features_embedding_layer is None:
             embedding_1 = self.features_embedding_layer_1(selected_features)
@@ -157,9 +129,5 @@ class FirstStep(tf.keras.layers.Layer):
             output = self.features_embedding_layer(selected_features)
         
         outputs = output[:, :self.features_outputs_units], output[:, self.features_outputs_units:], mask
-        if self.step_embeddings_neurons_dropout_rate is not None:
-            outputs[0] = self.step_embeddings_neurons_dropout(outputs[0])
-        if self.step_embeddings_samples_dropout_rate is not None:
-            outputs[0] = self.step_embeddings_samples_dropout(outputs[0])
             
-        return outputs
+        return outputs, states

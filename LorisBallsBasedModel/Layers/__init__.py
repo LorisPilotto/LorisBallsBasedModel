@@ -5,3 +5,4 @@ from LorisBallsBasedModel.Layers.AttentiveTransformer import AttentiveTransforme
 from LorisBallsBasedModel.Layers.Step import DenseAndBoundedParaboloids, Step, FirstStep
 from LorisBallsBasedModel.Layers.MaskActivation import ActivationAsRegularization, ShiftedActivation
 from LorisBallsBasedModel.Layers.UtilityLayers import IdentityLayer
+from LorisBallsBasedModel.Layers.LSTMCell import LSTMCell

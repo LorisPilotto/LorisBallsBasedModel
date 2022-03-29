@@ -42,8 +42,6 @@ class LorisBallsBasedModel(tf.keras.Model):
                  step_args=None,
                  step_layer=Step,
                  input_processing_layer=None,
-                 LBBM_embeddings_neurons_dropout_rate=None,
-                 LBBM_embeddings_samples_dropout_rate=None,
                  **kwargs):
         if nbr_steps < 1:
             raise ValueError("Give a 'nbr_steps' strictly higher than 0.")
@@ -64,16 +62,6 @@ class LorisBallsBasedModel(tf.keras.Model):
             else:
                 self.steps_list = [step_layer(**self.step_args) for s in range(self.nbr_steps-1)]
         self.output_layer = output_layer
-        self.LBBM_embeddings_neurons_dropout_rate = LBBM_embeddings_neurons_dropout_rate
-        self.LBBM_embeddings_samples_dropout_rate = LBBM_embeddings_samples_dropout_rate
-        
-    def build(self, input_shape):
-        if self.LBBM_embeddings_neurons_dropout_rate is not None:
-            self.LBBM_embeddings_neurons_dropout = tf.keras.layers.Dropout(rate=self.LBBM_embeddings_neurons_dropout_rate)
-        if self.LBBM_embeddings_samples_dropout_rate is not None:
-            self.LBBM_embeddings_samples_dropout = tf.keras.layers.Dropout(rate=self.LBBM_embeddings_samples_dropout_rate,
-                                                                           noise_shape=[input_shape[0], 1])
-        super().build(input_shape)
         
     def forward(self, inputs):
         if inputs.dtype.base_dtype != self._compute_dtype_object.base_dtype:
@@ -82,59 +70,46 @@ class LorisBallsBasedModel(tf.keras.Model):
         if self.input_processing_layer is not None:
             inputs = self.input_processing_layer(inputs)
             
-        embedding, embedding_pass_next_step, first_mask = self.first_step_layer(inputs)
+        [embedding, embedding_pass_next_step, first_mask], states = self.first_step_layer(inputs)
         prior_embeddings_list = [embedding_pass_next_step]
         prior_masks_list = [first_mask]
         
         if self.nbr_steps > 1:
             for step in self.steps_list:
-                tmp_embedding, tmp_embedding_pass_next_step, tmp_mask = step([inputs,
-                                                                              prior_embeddings_list,
-                                                                              prior_masks_list])
+                [tmp_embedding, tmp_embedding_pass_next_step, tmp_mask], states = step([inputs,
+                                                                                        prior_embeddings_list,
+                                                                                        prior_masks_list],
+                                                                                       states)
                 embedding += tmp_embedding
                 prior_embeddings_list.append(tmp_embedding_pass_next_step)
                 prior_masks_list.append(tmp_mask)
-                
-        if self.LBBM_embeddings_neurons_dropout_rate is not None:
-            embedding = self.LBBM_embeddings_neurons_dropout(embedding)
-        if self.LBBM_embeddings_samples_dropout_rate is not None:
-            embedding = self.LBBM_embeddings_samples_dropout(embedding)
         
         if self.output_layer is None:  # For stacked model
             output = embedding
         else:
             output = self.output_layer(embedding)
         
-        return output, prior_masks_list
+        return output, prior_masks_list, states
     
     def call(self, inputs):
         return self.forward(inputs)[0]
     
     def masks_explain(self, inputs):
         return self.forward(inputs)[1]
+    
+    def final_states(self, inputs):
+        return self.forward(inputs)[2]
     
 class LorisBallsBasedModelTransferLearning(tf.keras.Model):
     def __init__(self,
                  step_layers_list,
                  output_layer,
                  input_processing_layer=None,
-                 LBBM_embeddings_neurons_dropout_rate=None,
-                 LBBM_embeddings_samples_dropout_rate=None,
                  **kwargs):
         super().__init__(**kwargs)
         self.step_layers_list = step_layers_list
         self.output_layer = output_layer
         self.input_processing_layer = input_processing_layer
-        self.LBBM_embeddings_neurons_dropout_rate = LBBM_embeddings_neurons_dropout_rate
-        self.LBBM_embeddings_samples_dropout_rate = LBBM_embeddings_samples_dropout_rate
-        
-    def build(self, input_shape):
-        if self.LBBM_embeddings_neurons_dropout_rate is not None:
-            self.LBBM_embeddings_neurons_dropout = tf.keras.layers.Dropout(rate=self.LBBM_embeddings_neurons_dropout_rate)
-        if self.LBBM_embeddings_samples_dropout_rate is not None:
-            self.LBBM_embeddings_samples_dropout = tf.keras.layers.Dropout(rate=self.LBBM_embeddings_samples_dropout_rate,
-                                                                           noise_shape=[input_shape[0], 1])
-        super().build(input_shape)
         
     def forward(self, inputs):
         if inputs.dtype.base_dtype != self._compute_dtype_object.base_dtype:
@@ -143,35 +118,34 @@ class LorisBallsBasedModelTransferLearning(tf.keras.Model):
         if self.input_processing_layer is not None:
             inputs = self.input_processing_layer(inputs)
             
-        embedding, embedding_pass_next_step, first_mask = self.step_layers_list[0](inputs)
+        [embedding, embedding_pass_next_step, first_mask], states = self.step_layers_list[0](inputs)
         prior_embeddings_list = [embedding_pass_next_step]
         prior_masks_list = [first_mask]
         
         for step in self.step_layers_list[1:]:
-            tmp_embedding, tmp_embedding_pass_next_step, tmp_mask = step([inputs,
-                                                                          prior_embeddings_list,
-                                                                          prior_masks_list])
+            [tmp_embedding, tmp_embedding_pass_next_step, tmp_mask], states = step([inputs,
+                                                                                    prior_embeddings_list,
+                                                                                    prior_masks_list],
+                                                                                   states)
             embedding += tmp_embedding
             prior_embeddings_list.append(tmp_embedding_pass_next_step)
             prior_masks_list.append(tmp_mask)
-                
-        if self.LBBM_embeddings_neurons_dropout_rate is not None:
-            embedding = self.LBBM_embeddings_neurons_dropout(embedding)
-        if self.LBBM_embeddings_samples_dropout_rate is not None:
-            embedding = self.LBBM_embeddings_samples_dropout(embedding)
         
         if self.output_layer is None:  # For stacked model
             output = embedding
         else:
             output = self.output_layer(embedding)
         
-        return output, prior_masks_list
+        return output, prior_masks_list, states
     
     def call(self, inputs):
         return self.forward(inputs)[0]
     
     def masks_explain(self, inputs):
         return self.forward(inputs)[1]
+    
+    def final_states(self, inputs):
+        return self.forward(inputs)[2]
     
 class StackedLorisBallsBasedModels(tf.keras.Model):
     def __init__(self,
@@ -205,21 +179,26 @@ class StackedLorisBallsBasedModels(tf.keras.Model):
         if self.input_processing_layer is not None:
             inputs = self.input_processing_layer(inputs)
         
-        first_embedding, first_prior_masks_list = self.models_list[0](inputs)
+        first_embedding, first_prior_masks_list, first_states = self.models_list[0].forward(inputs)
         embeddings_list = [first_embedding]
         prior_masks_list = [first_prior_masks_list]
+        states_list = [first_states]
         
         for model in self.models_list[1:]:
-            tmp_embedding, tmp_prior_masks_list = model(inputs)
+            tmp_embedding, tmp_prior_masks_list, tmp_states = model.forward(inputs)
             embeddings_list.append(tmp_embedding)
             prior_masks_list.append(tmp_prior_masks_list)
+            states_list.append(tmp_states)
         
         output = self.output_layer(tf.keras.layers.Concatenate()(embeddings_list))
         
-        return output, prior_masks_list
+        return output, prior_masks_list, states_list
     
     def call(self, inputs):
         return self.forward(inputs)[0]
     
     def masks_explain(self, inputs):
         return self.forward(inputs)[1]
+    
+    def final_states(self, inputs):
+        return self.forward(inputs)[2]
