@@ -40,8 +40,8 @@ class AttentiveTransformer(tf.keras.layers.Layer):
                  prior_outputs_dense_units=None,
                  prior_outputs_Loris_balls_units=None,
                  prior_outputs_embedding_layer=None,
-                 weighted_add_layer=WeightedAdd(use_bias=True),
                  memory_cell=None,
+                 weighted_add_layer=WeightedAdd(use_bias=True),
                  prior_mask_scales_function=None,
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
@@ -78,6 +78,7 @@ class AttentiveTransformer(tf.keras.layers.Layer):
         self.activation = tf.keras.activations.get(activation)
         self.inp_drop = tf.keras.layers.Dropout(self.dropout_rate)
         self.inp_emb_drop = tf.keras.layers.Dropout(self.dropout_rate)
+        self.inp_RNN_drop = tf.keras.layers.Dropout(self.dropout_rate)
         self.prior_outputs_embedding_layer = prior_outputs_embedding_layer
         if self.prior_outputs_embedding_layer is None:
             self.prior_outputs_dense_units = prior_outputs_dense_units
@@ -128,12 +129,12 @@ class AttentiveTransformer(tf.keras.layers.Layer):
         else:
             prior_outputs_embedding = self.prior_outputs_embedding_layer(prior_outputs)
         
+        inputs_RNN, states = self.memory_cell(input_tensor, states)
+        
         mask = self.weighted_add_layer([self.inp_drop(input_tensor),
                                         self.inp_emb_drop(inputs_embedding),
-                                        self.prior_out_drop(prior_outputs_embedding)])
-        
-        if self.memory_cell is not None:
-            mask, states = self.memory_cell(mask, states)
+                                        self.prior_out_drop(prior_outputs_embedding),
+                                        self.inp_RNN_drop(inputs_RNN)])
         
         prior = self.prior_mask_scales_function(self.gamma, prior_masks_list, tf.shape(input_tensor))
         mask *= prior
@@ -154,8 +155,8 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
                  input_dense_units=None,
                  input_Loris_balls_units=None,
                  input_embedding_layer=None,
-                 weighted_add_layer=WeightedAdd(use_bias=True),
                  memory_cell=None,
+                 weighted_add_layer=WeightedAdd(use_bias=True),
                  regularizer=tf.keras.regularizers.L1(0.),
                  activation=tfa.activations.sparsemax,
                  entropy_weight=0.,
@@ -182,6 +183,7 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
         self.activation = tf.keras.activations.get(activation)
         self.inp_drop = tf.keras.layers.Dropout(self.dropout_rate)
         self.inp_emb_drop = tf.keras.layers.Dropout(self.dropout_rate)
+        self.inp_RNN_drop = tf.keras.layers.Dropout(self.dropout_rate)
         self.entropy_weight = entropy_weight
         self.activity_entropy_regularizer_layer = IdentityLayer(EntropyRegularization(self.entropy_weight))
         
@@ -205,14 +207,12 @@ class FirstAttentiveTransformer(tf.keras.layers.Layer):
         else:
             inputs_embedding = self.input_embedding_layer(inputs)
         
-        mask = self.weighted_add_layer([self.inp_drop(inputs),
-                                        self.inp_emb_drop(inputs_embedding)])
+        states = [tf.zeros(tf.shape(inputs)), tf.zeros(tf.shape(inputs))]
+        inputs_RNN, states = self.memory_cell(inputs, states)
         
-        if self.memory_cell is not None:
-            states = [tf.zeros(tf.shape(mask)), tf.zeros(tf.shape(mask))]
-            mask, states = self.memory_cell(mask, states)
-        else:
-            states = None
+        mask = self.weighted_add_layer([self.inp_drop(inputs),
+                                        self.inp_emb_drop(inputs_embedding),
+                                        self.inp_RNN_drop(inputs_RNN)])
         
         mask = self.activity_regularizer_layer(mask)
         

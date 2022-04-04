@@ -1,6 +1,7 @@
 import tensorflow as tf
 from LorisBallsBasedModel.Layers.Step import Step, FirstStep
 from LorisBallsBasedModel.Layers.Processing import InputsProcessing
+from LorisBallsBasedModel.Layers.LSTMCell import LSTMCell
 
 
 class SingleLayerPerceptron(tf.keras.Model):
@@ -52,14 +53,23 @@ class LorisBallsBasedModel(tf.keras.Model):
         self.input_processing_layer = input_processing_layer
         self.nbr_steps = nbr_steps
         self.first_step_args = first_step_args
+        memory_cell = LSTMCell()
+        if 'memory_cell' not in self.first_step_args['attentive_transformer_params_dict'].keys():
+            self.first_step_args['attentive_transformer_params_dict']['memory_cell'] = memory_cell
         self.first_step_layer = first_step_layer(**self.first_step_args)
         if self.nbr_steps > 1:
             self.step_args = step_args
             if isinstance(self.step_args, list):
                 if len(self.step_args) != self.nbr_steps-1:
                     raise ValueError(f"'step_args' should be of size {self.nbr_steps-1} (i.e. nbr_steps-1).")
-                self.steps_list = [step_layer(**args) for args in self.step_args]
+                self.steps_list = []
+                for args in self.step_args:
+                    if 'memory_cell' not in args['attentive_transformer_params_dict'].keys():
+                        args['attentive_transformer_params_dict']['memory_cell'] = memory_cell
+                    self.steps_list.append(step_layer(**args))
             else:
+                if 'memory_cell' not in self.step_args['attentive_transformer_params_dict'].keys():
+                    self.step_args['attentive_transformer_params_dict']['memory_cell'] = memory_cell
                 self.steps_list = [step_layer(**self.step_args) for s in range(self.nbr_steps-1)]
         self.output_layer = output_layer
         
